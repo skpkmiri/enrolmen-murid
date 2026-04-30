@@ -78,7 +78,7 @@
             </div>
 
             <!-- Summary Cards (Hanya papar jika bukan mod Trend) -->
-            <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
                 <!-- Card 1 -->
                 <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex items-center gap-4">
                     <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xl">🎓</div>
@@ -101,14 +101,6 @@
                     <div>
                         <p class="text-sm font-medium text-gray-500">Perempuan</p>
                         <h3 class="text-2xl font-bold text-gray-800" id="card-perempuan">0</h3>
-                    </div>
-                </div>
-                <!-- Card 4 -->
-                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 text-xl">🏫</div>
-                    <div>
-                        <p class="text-sm font-medium text-gray-500">Murid Perdana</p>
-                        <h3 class="text-2xl font-bold text-gray-800" id="card-perdana">0</h3>
                     </div>
                 </div>
             </div>
@@ -407,13 +399,6 @@
                 Object.values(dataTahun.kaum).forEach(v => jumKeseluruhan += v);
             }
 
-            // Kira Murid Perdana (Keseluruhan tolak Prasekolah)
-            let jumPrasekolah = 0;
-            Object.entries(dataTahun.kategori).forEach(([k, v]) => {
-                if (k.toUpperCase() === 'PRASEKOLAH') jumPrasekolah += v;
-            });
-            let jumPerdana = jumKeseluruhan - jumPrasekolah;
-
             // Update Teks Tajuk
             if (currentFilter === 'trend') {
                 document.getElementById('dashboard-title').innerText = "Trend Keseluruhan (2022 - 2026)";
@@ -427,7 +412,6 @@
             document.getElementById('card-total').innerText = jumKeseluruhan.toLocaleString();
             document.getElementById('card-lelaki').innerText = jumLelaki.toLocaleString();
             document.getElementById('card-perempuan').innerText = jumPerempuan.toLocaleString();
-            document.getElementById('card-perdana').innerText = jumPerdana.toLocaleString();
 
             // Kawal Visibiliti Container berdasarkan Filter
             const cKaum = document.getElementById('container-kaum');
