@@ -71,7 +71,7 @@
                         <a href="#" onclick="setFilter('semua')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-indigo-700 bg-white shadow-sm transition-all" data-filter="semua">📊 Semua</a>
                         <a href="#" onclick="setFilter('kaum')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="kaum">👥 Kaum</a>
                         <a href="#" onclick="setFilter('jantina')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="jantina">🚻 Jantina</a>
-                        <a href="#" onclick="setFilter('kategori')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="kategori">🏫 Kategori</a>
+                        <a href="#" onclick="setFilter('kategori')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="kategori">🏫 Kategori Kelas</a>
                         <a href="#" onclick="setFilter('trend')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="trend">📈 Trend 5 Tahun</a>
                     </nav>
                 </div>
@@ -118,7 +118,7 @@
 
                 <!-- Chart Kategori -->
                 <div id="container-kategori" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 chart-box">
-                    <h3 class="text-lg font-bold text-gray-800 mb-4">Enrolmen Mengikut Kategori</h3>
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Enrolmen Mengikut Kategori Kelas</h3>
                     <div class="relative h-64 w-full">
                         <canvas id="chartKategori"></canvas>
                     </div>
@@ -217,9 +217,9 @@
 
                 // --- Logik Pengumpulan Data ---
                 
-                // 1. KATEGORI (Prasekolah, BD, BL, BP)
+                // 1. KATEGORI (Prasekolah, BD, BL, BP, Tahap 1, Tahap 2)
                 if (section === "KATEGORI") {
-                    const validKat = ["PRASEKOLAH", "BD", "BL", "BP"];
+                    const validKat = ["PRASEKOLAH", "BD", "BL", "BP", "TAHAP 1", "TAHAP 2"];
                     if (validKat.includes(firstCell)) {
                         let rawVal = String(row[3]).replace(/,/g, ''); // Ambil lajur 'Jumlah'
                         let jumlah = parseInt(rawVal);
@@ -227,6 +227,8 @@
                             // Kekalkan nama asal untuk paparan
                             let namaKategori = row[0].trim();
                             if(namaKategori.toUpperCase() === "PRASEKOLAH") namaKategori = "Prasekolah";
+                            else if(namaKategori.toUpperCase() === "TAHAP 1") namaKategori = "Tahap 1";
+                            else if(namaKategori.toUpperCase() === "TAHAP 2") namaKategori = "Tahap 2";
                             result.kategori[namaKategori] = jumlah;
                         }
                     }
@@ -544,7 +546,9 @@
                             'rgba(245, 158, 11, 0.8)', // Amber untuk Prasekolah
                             'rgba(16, 185, 129, 0.8)', // Emerald
                             'rgba(59, 130, 246, 0.8)', // Blue
-                            'rgba(139, 92, 246, 0.8)'  // Violet
+                            'rgba(139, 92, 246, 0.8)', // Violet
+                            'rgba(236, 72, 153, 0.8)', // Pink untuk Tahap 1
+                            'rgba(14, 165, 233, 0.8)'  // Sky untuk Tahap 2
                         ],
                         borderRadius: 6,
                         barThickness: 40
@@ -675,7 +679,7 @@
             content.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     ${createTable('Jantina', data.jantina)}
-                    ${createTable('Kategori', data.kategori)}
+                    ${createTable('Kategori Kelas', data.kategori)}
                     <div class="md:col-span-2">
                         ${createTable('Kaum', data.kaum)}
                     </div>
