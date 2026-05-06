@@ -3,351 +3,698 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Enrolmen Murid HEM</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Papan Pemuka Enrolmen Murid | PK HEM</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse untuk baca CSV secara stabil -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .tab-active { border-bottom: 4px solid #2563eb; color: #2563eb; font-weight: 700; }
-        .filter-btn-active { background-color: #2563eb !important; color: white !important; border-color: #2563eb !important; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Sembunyikan scrollbar untuk susunan tab yang kemas */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="p-0 m-0">
+<body class="flex flex-col h-screen overflow-hidden text-gray-800">
 
-    <!-- Header -->
-    <header class="bg-blue-800 text-white p-6 shadow-lg">
-        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
-            <div class="flex items-center space-x-4">
-                <div class="bg-white p-2 rounded-lg shadow-inner">
-                    <i class="fas fa-school text-blue-800 text-3xl"></i>
-                </div>
-                <div>
-                    <h1 class="text-2xl font-bold uppercase tracking-tight">Sistem Enrolmen Murid</h1>
-                    <p class="text-sm opacity-80 text-blue-100">Pejabat Penolong Kanan Hal Ehwal Murid (PK HEM)</p>
-                </div>
+    <!-- Overlay Loading Data -->
+    <div id="loading-overlay" class="fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center transition-opacity duration-500">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mb-4"></div>
+        <h2 class="text-xl font-bold text-gray-800">Menyegerak Data...</h2>
+        <p class="text-gray-500 mt-2 text-sm text-center">Mengambil maklumat enrolmen dari fail pangkalan data Google Sheets.<br>Sila tunggu sebentar.</p>
+    </div>
+
+    <!-- Top Navigation (Hanya Pilihan Tahun) -->
+    <header class="bg-white shadow-sm z-20 flex-shrink-0">
+        <!-- Baris Atas: Tajuk & Butang Cetak -->
+        <div class="px-4 py-4 md:px-8 border-b border-gray-100 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold text-indigo-700 leading-tight">Sistem Pengurusan Enrolmen Murid</h1>
+                <p class="text-xs text-gray-500 mt-0.5">Unit Hal Ehwal Murid (HEM)</p>
             </div>
-            <div class="mt-4 md:mt-0 text-right">
-                <span id="currentDate" class="text-sm font-medium bg-blue-700 px-4 py-2 rounded-full border border-blue-600"></span>
+            <div class="hidden md:flex items-center gap-2">
+                <button onclick="openPreview()" class="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-4 py-2 rounded-lg shadow-sm text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition">
+                    👀 Pratonton Data
+                </button>
+                <button onclick="window.print()" class="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-lg shadow-sm text-sm font-medium text-gray-600 hover:bg-gray-50 transition">
+                    🖨️ Cetak Laporan
+                </button>
             </div>
+        </div>
+
+        <!-- Baris Bawah: Menu Tab Tahun -->
+        <div class="px-4 md:px-8 bg-gray-50/50 pt-2 border-b border-gray-200">
+            <nav id="nav-tahun" class="flex gap-2 md:gap-8 -mb-px overflow-x-auto hide-scrollbar">
+                <!-- Javascript akan jana senarai tab tahun di sini -->
+            </nav>
         </div>
     </header>
 
-    <!-- Navigation Tahun -->
-    <nav class="bg-white shadow-md sticky top-0 z-50">
-        <div class="container mx-auto flex overflow-x-auto no-scrollbar border-b">
-            <button onclick="changeYear(2022)" id="tab-2022" class="year-tab flex-1 py-4 px-6 text-center hover:bg-gray-50 transition duration-300">2022</button>
-            <button onclick="changeYear(2023)" id="tab-2023" class="year-tab flex-1 py-4 px-6 text-center hover:bg-gray-50 transition duration-300">2023</button>
-            <button onclick="changeYear(2024)" id="tab-2024" class="year-tab flex-1 py-4 px-6 text-center hover:bg-gray-50 transition duration-300">2024</button>
-            <button onclick="changeYear(2025)" id="tab-2025" class="year-tab flex-1 py-4 px-6 text-center hover:bg-gray-50 transition duration-300">2025</button>
-            <button onclick="changeYear(2026)" id="tab-2026" class="year-tab flex-1 py-4 px-6 text-center hover:bg-gray-50 transition duration-300 tab-active">2026</button>
-        </div>
-    </nav>
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-8">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Bahagian Tajuk Halaman & Filter Graf Dalaman -->
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-6 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800" id="dashboard-title">Enrolmen Tahun 2026</h2>
+                    <p class="text-gray-500 text-sm mt-1" id="dashboard-subtitle">Ringkasan keseluruhan murid mengikut demografi semasa.</p>
+                </div>
+                
+                <!-- Pilihan Filter Graf (Berada di dalam setiap paparan tahun) -->
+                <div class="bg-gray-200/70 p-1 rounded-lg inline-flex overflow-x-auto max-w-full hide-scrollbar border border-gray-200/50">
+                    <nav id="nav-filter" class="flex gap-1 whitespace-nowrap">
+                        <a href="#" onclick="setFilter('semua')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-indigo-700 bg-white shadow-sm transition-all" data-filter="semua">📊 Semua</a>
+                        <a href="#" onclick="setFilter('kaum')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="kaum">👥 Kaum</a>
+                        <a href="#" onclick="setFilter('jantina')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="jantina">🚻 Jantina</a>
+                        <a href="#" onclick="setFilter('kategori')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="kategori">🏫 Kategori Kelas</a>
+                        <a href="#" onclick="setFilter('trend')" class="filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all" data-filter="trend">📈 Trend 5 Tahun</a>
+                    </nav>
+                </div>
+            </div>
 
-    <main class="container mx-auto p-4 md:p-8">
+            <!-- Summary Cards (Hanya papar jika bukan mod Trend) -->
+            <div id="summary-cards" class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8">
+                <!-- Card 1 -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-xl">🎓</div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Jumlah Keseluruhan</p>
+                        <h3 class="text-2xl font-bold text-gray-800" id="card-total">0</h3>
+                    </div>
+                </div>
+                <!-- Card 2 -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xl">👦</div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Lelaki</p>
+                        <h3 class="text-2xl font-bold text-gray-800" id="card-lelaki">0</h3>
+                    </div>
+                </div>
+                <!-- Card 3 -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 text-xl">👧</div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Perempuan</p>
+                        <h3 class="text-2xl font-bold text-gray-800" id="card-perempuan">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Container -->
+            <div id="charts-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Chart Jantina -->
+                <div id="container-jantina" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 chart-box">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Enrolmen Mengikut Jantina</h3>
+                    <div class="relative h-64 w-full flex justify-center">
+                        <canvas id="chartJantina"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart Kategori -->
+                <div id="container-kategori" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 chart-box">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Enrolmen Mengikut Kategori Kelas</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="chartKategori"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart Kaum (Lebar Penuh) -->
+                <div id="container-kaum" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 chart-box lg:col-span-2">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Enrolmen Mengikut Kaum</h3>
+                    <div class="relative h-72 w-full">
+                        <canvas id="chartKaum"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart Trend Keseluruhan (Hanya papar bila filter = trend) -->
+            <div id="container-trend" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 chart-box lg:col-span-2 hidden">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">Trend Enrolmen Keseluruhan (2022 - 2026)</h3>
+                <div class="relative h-80 w-full">
+                    <canvas id="chartTrend"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 pt-6 pb-2 border-t border-gray-200 text-center text-xs text-gray-400">
+            &copy; 2026 Sistem Pengurusan Enrolmen Murid | Unit HEM
+        </div>
         
-        <!-- Filter Kategori Utama -->
-        <div class="mb-8 flex flex-wrap gap-2 items-center justify-center lg:justify-start bg-white p-4 rounded-xl shadow-sm">
-            <span class="font-bold text-gray-700 mr-2 uppercase text-xs tracking-widest">Kategori:</span>
-            <button onclick="filterCategory('ALL')" id="filter-ALL" class="filter-btn px-5 py-2 text-sm rounded-lg bg-gray-100 border border-transparent hover:bg-blue-50 transition filter-btn-active">Semua</button>
-            <button onclick="filterCategory('PRA')" id="filter-PRA" class="filter-btn px-5 py-2 text-sm rounded-lg bg-gray-100 border border-transparent hover:bg-blue-50 transition">Prasekolah</button>
-            <button onclick="filterCategory('BD')" id="filter-BD" class="filter-btn px-5 py-2 text-sm rounded-lg bg-gray-100 border border-transparent hover:bg-blue-50 transition">BD</button>
-            <button onclick="filterCategory('BL')" id="filter-BL" class="filter-btn px-5 py-2 text-sm rounded-lg bg-gray-100 border border-transparent hover:bg-blue-50 transition">BL</button>
-            <button onclick="filterCategory('BP')" id="filter-BP" class="filter-btn px-5 py-2 text-sm rounded-lg bg-gray-100 border border-transparent hover:bg-blue-50 transition">BP</button>
-        </div>
-
-        <!-- Ringkasan Statistik -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-blue-600">
-                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Jumlah Keseluruhan</p>
-                <div class="flex items-end space-x-2">
-                    <h3 class="text-4xl font-black text-gray-800" id="stat-total">0</h3>
-                    <span class="text-gray-400 text-sm mb-1 pb-1">murid</span>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-pink-500">
-                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Jantina (L / P)</p>
-                <h3 class="text-3xl font-bold text-gray-800" id="stat-gender">0 / 0</h3>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-yellow-500">
-                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Tahun Paparan</p>
-                <h3 class="text-3xl font-bold text-gray-800" id="stat-year">2026</h3>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border-t-4 border-green-500">
-                <p class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Kategori</p>
-                <h3 class="text-3xl font-bold text-gray-800" id="stat-category">Semua</h3>
-            </div>
-        </div>
-
-        <!-- Graf Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
-                <h4 class="text-md font-bold mb-6 text-gray-700 flex items-center">
-                    <i class="fas fa-users mr-2 text-blue-600"></i> Komposisi Kaum
-                </h4>
-                <div class="h-64">
-                    <canvas id="raceChart"></canvas>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
-                <h4 class="text-md font-bold mb-6 text-gray-700 flex items-center">
-                    <i class="fas fa-venus-mars mr-2 text-pink-600"></i> Pecahan Jantina
-                </h4>
-                <div class="h-64 relative">
-                    <canvas id="genderChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Senarai Murid Mengikut Kelas (BAHARU) -->
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100 mb-8">
-            <h4 class="text-md font-bold mb-6 text-gray-700 flex items-center justify-between">
-                <span><i class="fas fa-list-ol mr-2 text-indigo-600"></i> Perincian Murid Setiap Kelas</span>
-                <span class="text-xs font-normal text-gray-400">Data berdasarkan filter semasa</span>
-            </h4>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b-2 border-gray-100 text-gray-400 text-xs uppercase">
-                            <th class="py-3 px-4 font-bold">Nama Kelas</th>
-                            <th class="py-3 px-4 font-bold text-center">Lelaki</th>
-                            <th class="py-3 px-4 font-bold text-center">Perempuan</th>
-                            <th class="py-3 px-4 font-bold text-center">Melayu</th>
-                            <th class="py-3 px-4 font-bold text-center">Cina</th>
-                            <th class="py-3 px-4 font-bold text-center">India</th>
-                            <th class="py-3 px-4 font-bold text-right bg-gray-50">Jumlah</th>
-                        </tr>
-                    </thead>
-                    <tbody id="class-table-body" class="text-sm text-gray-700">
-                        <!-- Data dimasukkan melalui JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Trend Line -->
-        <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
-            <h4 class="text-md font-bold mb-6 text-gray-700">
-                <i class="fas fa-chart-line mr-2 text-green-600"></i> Trend Enrolmen (2022 - 2026)
-            </h4>
-            <div class="h-64">
-                <canvas id="trendChart"></canvas>
-            </div>
-        </div>
-
+        </div> <!-- End max-w-7xl -->
     </main>
 
-    <footer class="bg-gray-900 text-gray-500 py-10 text-center mt-12 border-t border-gray-800">
-        <p class="text-xs uppercase tracking-widest font-bold">Portal Pengurusan Data HEM</p>
-        <p class="text-[10px] mt-2 opacity-50">Sistem ini memaparkan enrolmen bagi kelas Prasekolah, 1PBD, BD, BL, dan BP.</p>
-    </footer>
+    <!-- Modal Pratonton Data -->
+    <div id="preview-modal" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 hidden flex-col items-center justify-center p-4 transition-opacity">
+        <div class="bg-white w-full max-w-3xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-[fadeIn_0.2s_ease-out]">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-lg text-gray-800" id="preview-title">Pratonton Data Enrolmen</h3>
+                <button onclick="closePreview()" class="text-gray-400 hover:text-red-500 text-2xl leading-none transition-colors">&times;</button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 bg-white">
+                <div id="preview-content" class="space-y-6">
+                    <!-- Jadual akan dijana oleh Javascript di sini -->
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                <button onclick="closePreview()" class="px-5 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 shadow-sm transition">Tutup</button>
+            </div>
+        </div>
+    </div>
 
     <script>
-        // Data Struktur berdasarkan senarai kelas anda
-        const classNames = [
-            "PRASEKOLAH", "1PBD", 
-            "1BD", "2BD", "3BD", "4BD", "5BD", "6BD", 
-            "1BL", "2BL", "3BL", "4BL", "5BL", "6BL", 
-            "1BP DELIMA", "1BP ZAMRUD", "2BP DELIMA", "2BP ZAMRUD", "3BP", "4BP", "5BP", "6BP"
-        ];
-
-        // Fungsi Helper: Jana data rawak untuk simulasi (Gantikan dengan data sebenar)
-        function generateYearData(yearSeed) {
-            const data = {};
-            classNames.forEach(cls => {
-                const base = 15 + Math.floor(Math.random() * 15);
-                data[cls] = {
-                    L: Math.floor(base * 0.4) + (yearSeed % 5),
-                    P: Math.floor(base * 0.6) + (yearSeed % 3),
-                    M: Math.floor(base * 0.7),
-                    C: Math.floor(base * 0.2),
-                    I: Math.floor(base * 0.1)
-                };
-                // Ensure M+C+I equals L+P approximately
-                data[cls].M = (data[cls].L + data[cls].P) - data[cls].C - data[cls].I;
-            });
-            return data;
-        }
-
-        const schoolData = {
-            2022: generateYearData(2022),
-            2023: generateYearData(2023),
-            2024: generateYearData(2024),
-            2025: generateYearData(2025),
-            2026: generateYearData(2026)
+        // --- 1. DATA DARI GOOGLE SHEETS ---
+        let dbData = {}; 
+        const tahunList = ["2022", "2023", "2024", "2025", "2026"];
+        
+        // Menggunakan link tunggal yang diberikan, ditarik mengikut tab (sheet)
+        const baseUrl = "https://docs.google.com/spreadsheets/d/19jK22J25QxLRPIM7ipcjABaWOPVK9cHn1mPk4KlGIuU/gviz/tq?tqx=out:csv&sheet=";
+        const sheetLinks = {
+            "2022": baseUrl + "2022",
+            "2023": baseUrl + "2023",
+            "2024": baseUrl + "2024",
+            "2025": baseUrl + "2025",
+            "2026": baseUrl + "2026"
         };
 
-        let currentYear = 2026;
-        let currentFilter = 'ALL';
-        let charts = {};
+        // Fungsi Pintar untuk memproses struktur KHAS hamparan (spreadsheet) Cikgu
+        function parseSmartCSV(csvText) {
+            const parsed = Papa.parse(csvText, { header: false, skipEmptyLines: true });
+            const rows = parsed.data;
+            let result = { kaum: {}, jantina: {}, kategori: {} };
 
-        function init() {
-            document.getElementById('currentDate').innerText = new Date().toLocaleDateString('ms-MY', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            renderDashboard();
-            renderTrendChart();
+            if (rows.length === 0) return result;
+
+            let section = "";
+            
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+                
+                const firstCell = String(row[0]).trim().toUpperCase();
+                const secondCell = row.length > 1 ? String(row[1]).trim().toUpperCase() : "";
+
+                // Kenal pasti bahagian jadual (Sections)
+                if (firstCell === "KAUM" && (secondCell === "PRASEKOLAH" || secondCell.includes("ISLAM") || secondCell === "")) {
+                    section = "KAUM";
+                    continue;
+                } else if (firstCell === "KATEGORI" && secondCell === "TAHAP 1") {
+                    section = "KATEGORI";
+                    continue;
+                } else if (firstCell === "TAHUN" && secondCell === "LELAKI") {
+                    section = "KELAS";
+                    continue;
+                } else if (firstCell === "KELAS" && secondCell === "L") {
+                    section = "KELAS_MENTAH";
+                    continue;
+                }
+
+                // --- Logik Pengumpulan Data ---
+                
+                // 1. KATEGORI (Prasekolah, BD, BL, BP, Tahap 1, Tahap 2)
+                if (section === "KATEGORI") {
+                    const validKat = ["PRASEKOLAH", "BD", "BL", "BP", "TAHAP 1", "TAHAP 2"];
+                    if (validKat.includes(firstCell)) {
+                        let rawVal = String(row[3]).replace(/,/g, ''); // Ambil lajur 'Jumlah'
+                        let jumlah = parseInt(rawVal);
+                        if (!isNaN(jumlah)) {
+                            // Kekalkan nama asal untuk paparan
+                            let namaKategori = row[0].trim();
+                            if(namaKategori.toUpperCase() === "PRASEKOLAH") namaKategori = "Prasekolah";
+                            else if(namaKategori.toUpperCase() === "TAHAP 1") namaKategori = "Tahap 1";
+                            else if(namaKategori.toUpperCase() === "TAHAP 2") namaKategori = "Tahap 2";
+                            result.kategori[namaKategori] = jumlah;
+                        }
+                    }
+                }
+
+                // 2. KAUM & JANTINA
+                if (section === "KAUM") {
+                    const validKaum = ["MELAYU", "CINA", "INDIA", "IBAN", "LAIN-LAIN"];
+                    
+                    if (validKaum.includes(firstCell)) {
+                        let rawVal = String(row[7]).replace(/,/g, ''); // Lajur ke-8 selalunya Jumlah untuk format ini
+                        let jumlah = parseInt(rawVal);
+                        
+                        if (isNaN(jumlah)) { // Fallback jika lajur ke-8 kosong
+                            jumlah = 0;
+                            for(let j=1; j<=6; j++) {
+                                let val = parseInt(String(row[j]).replace(/,/g, ''));
+                                if(!isNaN(val)) jumlah += val;
+                            }
+                        }
+                        
+                        // Perkemas nama Kaum
+                        let namaKaum = row[0].trim();
+                        if (firstCell === "LAIN-LAIN") namaKaum = "Lain-lain";
+                        else namaKaum = namaKaum.charAt(0).toUpperCase() + namaKaum.slice(1).toLowerCase();
+                        
+                        result.kaum[namaKaum] = jumlah;
+                    }
+                    else if ((firstCell === "JUMLAH" || firstCell === "JUMLAH KESELURUHAN") && Object.keys(result.jantina).length === 0) {
+                        // Tarik Jantina dari baris 'Jumlah' di bahagian bawah jadual Kaum
+                        let praL = parseInt(String(row[1]).replace(/,/g, '')) || 0;
+                        let praP = parseInt(String(row[2]).replace(/,/g, '')) || 0;
+                        let t1L = parseInt(String(row[3]).replace(/,/g, '')) || 0;
+                        let t1P = parseInt(String(row[4]).replace(/,/g, '')) || 0;
+                        let t2L = parseInt(String(row[5]).replace(/,/g, '')) || 0;
+                        let t2P = parseInt(String(row[6]).replace(/,/g, '')) || 0;
+                        
+                        let sumL = praL + t1L + t2L;
+                        let sumP = praP + t1P + t2P;
+                        
+                        if (sumL > 0 || sumP > 0) {
+                            result.jantina["Lelaki"] = sumL;
+                            result.jantina["Perempuan"] = sumP;
+                        }
+                    }
+                }
+            }
+
+            // Fallback keselamatan jika jadual kosong
+            if(Object.keys(result.kaum).length === 0) result.kaum['Tiada Data'] = 0;
+            if(Object.keys(result.jantina).length === 0) result.jantina['Tiada Data'] = 0;
+            if(Object.keys(result.kategori).length === 0) result.kategori['Tiada Data'] = 0;
+
+            return result;
+        }
+        
+        // --- 2. STATE PENGURUSAN ---
+        let currentYear = "2026";
+        let currentFilter = "semua"; // semua, kaum, jantina, kategori, trend
+        
+        // Objek untuk simpan instance Chart.js
+        let chartInstances = {
+            kaum: null,
+            jantina: null,
+            kategori: null,
+            trend: null
+        };
+
+        // --- 3. INISIALISASI (TARIK DATA DARI SHEETS KETIKA DIBUKA) ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            
+            // Laksanakan proses tarik (fetch) semua fail CSV
+            for (const tahun of tahunList) {
+                try {
+                    const response = await fetch(sheetLinks[tahun]);
+                    if (!response.ok) throw new Error("Gagal mengambil data");
+                    const csvText = await response.text();
+                    dbData[tahun] = parseSmartCSV(csvText);
+                } catch (error) {
+                    console.error(`Ralat sistem: Gagal memuat turun data ${tahun}`, error);
+                    // Set data kosong supaya sistem tidak tergendala (putih)
+                    dbData[tahun] = { 
+                        kaum: {'Tiada Data': 0}, jantina: {'Tiada Data': 0}, kategori: {'Tiada Data': 0} 
+                    };
+                }
+            }
+
+            // Sembunyikan tetingkap 'loading' selepas siap mengambil semua data
+            const overlay = document.getElementById('loading-overlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.classList.add('hidden'), 500); // Tunggu animasi pudar
+
+            binaMenuTahun();
+            updateDashboard();
+        });
+
+        function binaMenuTahun() {
+            const nav = document.getElementById('nav-tahun');
+            nav.innerHTML = '';
+
+            tahunList.forEach(tahun => {
+                const a = document.createElement('a');
+                a.href = "#";
+                
+                // Reka bentuk Tab Aktif vs Tidak Aktif
+                if(tahun === currentYear) {
+                    a.className = `tahun-btn py-3 px-2 md:px-4 border-b-2 border-indigo-600 text-indigo-700 font-bold text-sm whitespace-nowrap transition-colors`;
+                } else {
+                    a.className = `tahun-btn py-3 px-2 md:px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium text-sm whitespace-nowrap transition-colors`;
+                }
+                
+                a.dataset.tahun = tahun;
+                a.innerHTML = `📅 Tahun ${tahun}`;
+                a.onclick = (e) => { e.preventDefault(); setTahun(tahun); };
+                nav.appendChild(a);
+            });
         }
 
-        function changeYear(year) {
-            currentYear = year;
-            document.querySelectorAll('.year-tab').forEach(t => t.classList.remove('tab-active'));
-            document.getElementById(`tab-${year}`).classList.add('tab-active');
-            renderDashboard();
-        }
-
-        function filterCategory(cat) {
-            currentFilter = cat;
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('filter-btn-active'));
-            document.getElementById(`filter-${cat}`).classList.add('filter-btn-active');
-            renderDashboard();
-        }
-
-        function getFilteredList() {
-            const yearData = schoolData[currentYear];
-            let filteredList = [];
-
-            Object.keys(yearData).forEach(className => {
-                let match = false;
-                if (currentFilter === 'ALL') match = true;
-                else if (currentFilter === 'PRA' && className === "PRASEKOLAH") match = true;
-                else if (currentFilter === 'BD' && (className.includes('BD') && !className.includes('PBD'))) match = true;
-                else if (currentFilter === 'BL' && className.includes('BL')) match = true;
-                else if (currentFilter === 'BP' && className.includes('BP')) match = true;
-                else if (currentFilter === 'BD' && className === "1PBD") match = true; // 1PBD biasanya dalam kategori perdana/BD
-
-                if (match) {
-                    filteredList.push({ name: className, ...yearData[className] });
+        // --- 4. KAWALAN STATE (ACTION) ---
+        function setTahun(tahun) {
+            currentYear = tahun;
+            
+            // Update UI Menu Tabs
+            document.querySelectorAll('.tahun-btn').forEach(btn => {
+                if(btn.dataset.tahun === tahun) {
+                    btn.className = `tahun-btn py-3 px-2 md:px-4 border-b-2 border-indigo-600 text-indigo-700 font-bold text-sm whitespace-nowrap transition-colors`;
+                } else {
+                    btn.className = `tahun-btn py-3 px-2 md:px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium text-sm whitespace-nowrap transition-colors`;
                 }
             });
 
-            return filteredList;
+            // Jika dalam mod trend, tukar kembali ke semua bila tekan tahun spesifik
+            if(currentFilter === 'trend') setFilter('semua');
+            
+            updateDashboard();
         }
 
-        function renderDashboard() {
-            const list = getFilteredList();
+        function setFilter(filter) {
+            currentFilter = filter;
             
-            // Calculate Aggregates
-            const agg = { L: 0, P: 0, M: 0, C: 0, I: 0 };
-            const tableBody = document.getElementById('class-table-body');
-            tableBody.innerHTML = '';
-
-            list.forEach(item => {
-                agg.L += item.L; agg.P += item.P; agg.M += item.M; agg.C += item.C; agg.I += item.I;
-                
-                const total = item.L + item.P;
-                tableBody.innerHTML += `
-                    <tr class="border-b border-gray-50 hover:bg-blue-50 transition">
-                        <td class="py-3 px-4 font-semibold text-blue-800">${item.name}</td>
-                        <td class="py-3 px-4 text-center">${item.L}</td>
-                        <td class="py-3 px-4 text-center">${item.P}</td>
-                        <td class="py-3 px-4 text-center text-gray-500">${item.M}</td>
-                        <td class="py-3 px-4 text-center text-gray-500">${item.C}</td>
-                        <td class="py-3 px-4 text-center text-gray-500">${item.I}</td>
-                        <td class="py-3 px-4 text-right font-bold bg-gray-50">${total}</td>
-                    </tr>
-                `;
+            // Update UI Butang Dalaman (Pill Menu)
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if(btn.dataset.filter === filter) {
+                    btn.className = `filter-btn px-4 py-2 text-sm font-medium rounded-md text-indigo-700 bg-white shadow-sm transition-all`;
+                } else {
+                    btn.className = `filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all`;
+                }
             });
 
-            const totalEnrolmen = agg.L + agg.P;
-
-            // Update UI Stats
-            document.getElementById('stat-total').innerText = totalEnrolmen;
-            document.getElementById('stat-year').innerText = currentYear;
-            document.getElementById('stat-gender').innerText = `${agg.L} / ${agg.P}`;
-            document.getElementById('stat-category').innerText = currentFilter === 'ALL' ? 'Semua' : currentFilter;
-
-            // Update Charts
-            updateRaceChart(agg);
-            updateGenderChart(agg);
+            updateDashboard();
         }
 
-        function updateRaceChart(data) {
-            if (charts.race) charts.race.destroy();
-            const ctx = document.getElementById('raceChart').getContext('2d');
-            charts.race = new Chart(ctx, {
+        // --- 5. LOGIK RENDER & GRAF ---
+        function updateDashboard() {
+            const dataTahun = dbData[currentYear];
+            
+            // Kira Jumlah Dinamik (Tahan lasak jika data guna huruf besar/kecil)
+            let jumLelaki = 0;
+            let jumPerempuan = 0;
+            Object.entries(dataTahun.jantina).forEach(([k, v]) => {
+                const keyUp = k.toUpperCase();
+                if (keyUp === 'LELAKI' || keyUp === 'L') jumLelaki += v;
+                else if (keyUp === 'PEREMPUAN' || keyUp === 'P') jumPerempuan += v;
+            });
+            
+            // Jumlah Keseluruhan Murid
+            let jumKeseluruhan = 0;
+            Object.values(dataTahun.jantina).forEach(v => jumKeseluruhan += v);
+            if (jumKeseluruhan === 0) { // Fallback jumlahkan mengikut bilangan kaum jika data jantina kosong
+                Object.values(dataTahun.kaum).forEach(v => jumKeseluruhan += v);
+            }
+
+            // Update Teks Tajuk
+            if (currentFilter === 'trend') {
+                document.getElementById('dashboard-title').innerText = "Trend Keseluruhan (2022 - 2026)";
+                document.getElementById('dashboard-subtitle').innerText = "Perbandingan jumlah enrolmen merentas tahun.";
+            } else {
+                document.getElementById('dashboard-title').innerText = `Enrolmen Tahun ${currentYear}`;
+                document.getElementById('dashboard-subtitle').innerText = `Pecahan data enrolmen murid bagi sesi ${currentYear}.`;
+            }
+
+            // Update Kad Ringkasan (Animasi nombor ringkas)
+            document.getElementById('card-total').innerText = jumKeseluruhan.toLocaleString();
+            document.getElementById('card-lelaki').innerText = jumLelaki.toLocaleString();
+            document.getElementById('card-perempuan').innerText = jumPerempuan.toLocaleString();
+
+            // Kawal Visibiliti Container berdasarkan Filter
+            const cKaum = document.getElementById('container-kaum');
+            const cJantina = document.getElementById('container-jantina');
+            const cKategori = document.getElementById('container-kategori');
+            const cTrend = document.getElementById('container-trend');
+            const cards = document.getElementById('summary-cards');
+
+            // Reset semua hidden
+            cKaum.classList.add('hidden');
+            cJantina.classList.add('hidden');
+            cKategori.classList.add('hidden');
+            cTrend.classList.add('hidden');
+
+            if (currentFilter === 'semua') {
+                cards.classList.remove('hidden');
+                cKaum.classList.remove('hidden');
+                cJantina.classList.remove('hidden');
+                cKategori.classList.remove('hidden');
+                renderKaumChart(dataTahun.kaum);
+                renderJantinaChart(dataTahun.jantina);
+                renderKategoriChart(dataTahun.kategori);
+            } 
+            else if (currentFilter === 'kaum') {
+                cards.classList.remove('hidden');
+                cKaum.classList.remove('hidden');
+                renderKaumChart(dataTahun.kaum);
+            }
+            else if (currentFilter === 'jantina') {
+                cards.classList.remove('hidden');
+                cJantina.classList.remove('hidden');
+                // Ubah grid untuk penuh jika tunggal
+                cJantina.classList.add('lg:col-span-2'); 
+                renderJantinaChart(dataTahun.jantina);
+            }
+            else if (currentFilter === 'kategori') {
+                cards.classList.remove('hidden');
+                cKategori.classList.remove('hidden');
+                cKategori.classList.add('lg:col-span-2');
+                renderKategoriChart(dataTahun.kategori);
+            }
+            else if (currentFilter === 'trend') {
+                cards.classList.add('hidden'); // Sembunyikan kad statistik spesifik tahun
+                cTrend.classList.remove('hidden');
+                renderTrendChart();
+            }
+
+            // Cleanup kelas css (kembalikan col-span asal jika tak diperlukan)
+            if(currentFilter !== 'jantina') cJantina.classList.remove('lg:col-span-2');
+            if(currentFilter !== 'kategori') cKategori.classList.remove('lg:col-span-2');
+        }
+
+        // --- FUNGSI BINA GRAF MENGGUNAKAN CHART.JS ---
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.color = '#6b7280';
+
+        function renderKaumChart(data) {
+            const ctx = document.getElementById('chartKaum').getContext('2d');
+            if(chartInstances.kaum) chartInstances.kaum.destroy();
+
+            chartInstances.kaum = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['Melayu', 'Cina', 'India'],
+                    labels: Object.keys(data),
                     datasets: [{
-                        data: [data.M, data.C, data.I],
-                        backgroundColor: ['#2563eb', '#f59e0b', '#10b981'],
-                        borderRadius: 8
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, grid: { display: false } } }
-                }
-            });
-        }
-
-        function updateGenderChart(data) {
-            if (charts.gender) charts.gender.destroy();
-            const ctx = document.getElementById('genderChart').getContext('2d');
-            charts.gender = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Lelaki', 'Perempuan'],
-                    datasets: [{
-                        data: [data.L, data.P],
-                        backgroundColor: ['#3b82f6', '#ec4899'],
-                        borderWidth: 0,
-                        hoverOffset: 10
-                    }]
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    cutout: '70%',
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
-        }
-
-        function renderTrendChart() {
-            const years = [2022, 2023, 2024, 2025, 2026];
-            const dataTrend = years.map(y => {
-                let total = 0;
-                Object.values(schoolData[y]).forEach(c => total += (c.L + c.P));
-                return total;
-            });
-
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: years,
-                    datasets: [{
-                        label: 'Jumlah Murid Keseluruhan',
-                        data: dataTrend,
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#fff',
-                        pointBorderColor: '#10b981',
-                        pointBorderWidth: 3,
-                        pointRadius: 6
+                        label: 'Jumlah Murid',
+                        data: Object.values(data),
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.8)', // Indigo
+                            'rgba(59, 130, 246, 0.8)', // Blue
+                            'rgba(16, 185, 129, 0.8)', // Emerald
+                            'rgba(245, 158, 11, 0.8)', // Amber
+                            'rgba(236, 72, 153, 0.8)', // Pink
+                            'rgba(139, 92, 246, 0.8)', // Violet
+                            'rgba(107, 114, 128, 0.8)' // Gray
+                        ],
+                        borderRadius: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { 
-                        x: { grid: { display: false } },
-                        y: { grid: { color: '#f3f4f6' } } 
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
+                        x: { grid: { display: false } }
                     }
                 }
             });
         }
 
-        window.onload = init;
+        function renderJantinaChart(data) {
+            const ctx = document.getElementById('chartJantina').getContext('2d');
+            if(chartInstances.jantina) chartInstances.jantina.destroy();
+
+            chartInstances.jantina = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        data: Object.values(data),
+                        backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(236, 72, 153, 0.8)'], // Biru & Pink
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } }
+                    }
+                }
+            });
+        }
+
+        function renderKategoriChart(data) {
+            const ctx = document.getElementById('chartKategori').getContext('2d');
+            if(chartInstances.kategori) chartInstances.kategori.destroy();
+
+            chartInstances.kategori = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        label: 'Jumlah',
+                        data: Object.values(data),
+                        backgroundColor: [
+                            'rgba(245, 158, 11, 0.8)', // Amber untuk Prasekolah
+                            'rgba(16, 185, 129, 0.8)', // Emerald
+                            'rgba(59, 130, 246, 0.8)', // Blue
+                            'rgba(139, 92, 246, 0.8)', // Violet
+                            'rgba(236, 72, 153, 0.8)', // Pink untuk Tahap 1
+                            'rgba(14, 165, 233, 0.8)'  // Sky untuk Tahap 2
+                        ],
+                        borderRadius: 6,
+                        barThickness: 40
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [2, 4] } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderTrendChart() {
+            const ctx = document.getElementById('chartTrend').getContext('2d');
+            if(chartInstances.trend) chartInstances.trend.destroy();
+
+            // Sediakan data untuk garisan 5 tahun secara dinamik membaca dbData
+            const labelTahun = tahunList;
+            const dataJumlah = [];
+            const dataLelaki = [];
+            const dataPerempuan = [];
+
+            labelTahun.forEach(tahun => {
+                const dt = dbData[tahun] || { jantina: {}, kaum: {} };
+                
+                let lel = 0; let per = 0; let total = 0;
+                Object.entries(dt.jantina).forEach(([k, v]) => {
+                    const keyUp = k.toUpperCase();
+                    if (keyUp === 'LELAKI' || keyUp === 'L') lel += v;
+                    else if (keyUp === 'PEREMPUAN' || keyUp === 'P') per += v;
+                    total += v;
+                });
+                
+                if (total === 0) { // Fallback jika data tak sepadan
+                    Object.values(dt.kaum).forEach(v => total += v);
+                }
+
+                dataLelaki.push(lel);
+                dataPerempuan.push(per);
+                dataJumlah.push(total);
+            });
+
+            chartInstances.trend = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labelTahun,
+                    datasets: [
+                        {
+                            label: 'Jumlah Keseluruhan',
+                            data: dataJumlah,
+                            borderColor: 'rgba(99, 102, 241, 1)',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Lelaki',
+                            data: dataLelaki,
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Perempuan',
+                            data: dataPerempuan,
+                            borderColor: 'rgba(236, 72, 153, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true } }
+                    },
+                    scales: {
+                        y: { beginAtZero: false, grid: { borderDash: [2, 4] } }, // Skala grid auto mengikut data sebenar
+                        x: { grid: { display: false } }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    }
+                }
+            });
+        }
+
+        // --- 6. FUNGSI PRATONTON DATA (MODAL) ---
+        function openPreview() {
+            const modal = document.getElementById('preview-modal');
+            const content = document.getElementById('preview-content');
+            const title = document.getElementById('preview-title');
+            
+            const data = dbData[currentYear];
+            if(!data) return;
+
+            title.innerText = `Pratonton Data Jadual - Tahun ${currentYear}`;
+
+            // Fungsi bina jadual ringkas
+            const createTable = (tajuk, dataObj) => {
+                let rows = '';
+                let total = 0;
+                for (let [key, val] of Object.entries(dataObj)) {
+                    rows += `<tr class="border-b border-gray-100 hover:bg-gray-50"><td class="py-2.5 px-3 text-sm text-gray-600">${key}</td><td class="py-2.5 px-3 text-sm font-medium text-gray-800 text-right">${val}</td></tr>`;
+                    total += val;
+                }
+                rows += `<tr class="bg-indigo-50/50"><td class="py-3 px-3 text-sm font-bold text-gray-800 rounded-bl-lg">Jumlah</td><td class="py-3 px-3 text-sm font-bold text-indigo-700 text-right rounded-br-lg">${total}</td></tr>`;
+                
+                return `
+                <div class="border border-gray-200 rounded-lg shadow-sm">
+                    <h4 class="font-bold text-white bg-indigo-600 px-4 py-2 rounded-t-lg text-sm">${tajuk}</h4>
+                    <table class="w-full text-left border-collapse bg-white">
+                        ${rows}
+                    </table>
+                </div>`;
+            };
+
+            content.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${createTable('Jantina', data.jantina)}
+                    ${createTable('Kategori Kelas', data.kategori)}
+                    <div class="md:col-span-2">
+                        ${createTable('Kaum', data.kaum)}
+                    </div>
+                </div>
+            `;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePreview() {
+            const modal = document.getElementById('preview-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
     </script>
 </body>
 </html>
