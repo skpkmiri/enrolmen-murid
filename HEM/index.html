@@ -181,13 +181,19 @@
         let dbData = {}; 
         const tahunList = ["2022", "2023", "2024", "2025", "2026"];
         
-        const baseUrl = "https://docs.google.com/spreadsheets/d/19jK22J25QxLRPIM7ipcjABaWOPVK9cHn1mPk4KlGIuU/gviz/tq?tqx=out:csv&sheet=";
+        // SENARAI 20 KELAS YANG DITETAPKAN
+        const senaraiKelas = [
+            "PRASEKOLAH", "1PBD", "1BD", "2BD", "3BD", "4BD", "5BD", "6BD", 
+            "1BL", "2BL", "3BL", "4BL", "5BL", "6BL", "1BP", 
+            "2BP", "3BP", "4BP", "5BP", "6BP"
+        ];
+        
         const sheetLinks = {
-            "2022": baseUrl + "2022",
-            "2023": baseUrl + "2023",
-            "2024": baseUrl + "2024",
-            "2025": baseUrl + "2025",
-            "2026": baseUrl + "2026"
+            "2022": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv72SfvD1-Tmv4aQN6B07Hn34cQnriowFFdAZc-N43_TydQXXMqX9Z10pDI8QUnPa0kuzTdU29tP4G/pub?gid=2069319337&single=true&output=csv",
+            "2023": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv72SfvD1-Tmv4aQN6B07Hn34cQnriowFFdAZc-N43_TydQXXMqX9Z10pDI8QUnPa0kuzTdU29tP4G/pub?gid=2062762778&single=true&output=csv",
+            "2024": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv72SfvD1-Tmv4aQN6B07Hn34cQnriowFFdAZc-N43_TydQXXMqX9Z10pDI8QUnPa0kuzTdU29tP4G/pub?gid=1872987126&single=true&output=csv",
+            "2025": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv72SfvD1-Tmv4aQN6B07Hn34cQnriowFFdAZc-N43_TydQXXMqX9Z10pDI8QUnPa0kuzTdU29tP4G/pub?gid=1364797504&single=true&output=csv",
+            "2026": "https://docs.google.com/spreadsheets/d/e/2PACX-1vSv72SfvD1-Tmv4aQN6B07Hn34cQnriowFFdAZc-N43_TydQXXMqX9Z10pDI8QUnPa0kuzTdU29tP4G/pub?gid=405878618&single=true&output=csv"
         };
 
         // Fungsi Pintar untuk memproses struktur KHAS hamparan
