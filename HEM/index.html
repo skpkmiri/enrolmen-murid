@@ -28,7 +28,7 @@
         <p class="text-gray-500 mt-2 text-sm text-center">Mengambil maklumat enrolmen dari fail pangkalan data Google Sheets.<br>Sila tunggu sebentar.</p>
     </div>
 
-    <!-- Top Navigation -->
+    <!-- Top Navigation (Hanya Pilihan Tahun) -->
     <header class="bg-white shadow-sm z-20 flex-shrink-0">
         <!-- Baris Atas: Tajuk & Butang Cetak -->
         <div class="px-4 py-4 md:px-8 border-b border-gray-100 flex justify-between items-center">
@@ -105,16 +105,6 @@
                 </div>
             </div>
 
-            <!-- Dropdown Kelas (Hanya dipapar bila filter Kategori dipilih) -->
-            <div id="kelas-filter-container" class="hidden mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col sm:flex-row sm:items-center gap-4 animate-[fadeIn_0.3s_ease-out]">
-                <label class="text-sm font-bold text-gray-700 whitespace-nowrap">🔍 Tapisan Kelas:</label>
-                <select id="dropdown-kelas" onchange="updateKelasView()" class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 text-sm text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium cursor-pointer shadow-sm">
-                    <option value="Semua">Tunjuk Semua Kelas</option>
-                    <!-- Options senarai kelas akan dijana di sini -->
-                </select>
-                <p class="text-xs text-gray-400 hidden md:block">Pilih kelas dari senarai di atas untuk memfokuskan graf.</p>
-            </div>
-
             <!-- Charts Container -->
             <div id="charts-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
@@ -134,19 +124,18 @@
                     </div>
                 </div>
 
-                <!-- Chart Kategori Jantina (Analisis Kelas) -->
+                <!-- BARU: Chart Kategori Jantina (Analisis Kelas) -->
                 <div id="container-kategori-jantina" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 chart-box hidden">
                     <h3 class="text-lg font-bold text-gray-800 mb-4">Analisis Jantina Mengikut Kelas</h3>
-                    <!-- Ketinggian dinaikkan sikit (h-80) supaya 22 kelas nampak lebih jelas -->
-                    <div class="relative h-80 w-full md:h-96">
+                    <div class="relative h-72 w-full">
                         <canvas id="chartKategoriJantina"></canvas>
                     </div>
                 </div>
 
-                <!-- Chart Kategori Kaum (Analisis Kelas) -->
+                <!-- BARU: Chart Kategori Kaum (Analisis Kelas) -->
                 <div id="container-kategori-kaum" class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 chart-box hidden">
                     <h3 class="text-lg font-bold text-gray-800 mb-4">Analisis Kaum Mengikut Kelas</h3>
-                    <div class="relative h-80 w-full md:h-96">
+                    <div class="relative h-72 w-full">
                         <canvas id="chartKategoriKaum"></canvas>
                     </div>
                 </div>
@@ -188,184 +177,136 @@
     </div>
 
     <script>
-        // --- 1. DATA DARI GOOGLE SHEETS & SENARAI KELAS ---
+        // --- 1. DATA DARI GOOGLE SHEETS ---
         let dbData = {}; 
         const tahunList = ["2022", "2023", "2024", "2025", "2026"];
         
-        // SENARAI 22 KELAS YANG DITETAPKAN
-        const senaraiKelas = [
-            "PRASEKOLAH", "1PBD", "1BD", "2BD", "3BD", "4BD", "5BD", "6BD", 
-            "1BL", "2BL", "3BL", "4BL", "5BL", "6BL", "1BP DELIMA", 
-            "1BP ZAMRUD", "2BP DELIMA", "2BP ZAMRUD", "3BP", "4BP", "5BP", "6BP"
-        ];
-        
         const baseUrl = "https://docs.google.com/spreadsheets/d/19jK22J25QxLRPIM7ipcjABaWOPVK9cHn1mPk4KlGIuU/gviz/tq?tqx=out:csv&sheet=";
         const sheetLinks = {
-            "2022": baseUrl + "2022", "2023": baseUrl + "2023", "2024": baseUrl + "2024",
-            "2025": baseUrl + "2025", "2026": baseUrl + "2026"
+            "2022": baseUrl + "2022",
+            "2023": baseUrl + "2023",
+            "2024": baseUrl + "2024",
+            "2025": baseUrl + "2025",
+            "2026": baseUrl + "2026"
         };
 
-        // FUNGSI PINTAR YANG DIPERBAIK (KALIS RALAT SPACING & LAJUR)
+        // Fungsi Pintar untuk memproses struktur KHAS hamparan
         function parseSmartCSV(csvText) {
             const parsed = Papa.parse(csvText, { header: false, skipEmptyLines: true });
             const rows = parsed.data;
             
             let result = { 
-                kaum: {}, jantina: {}, kategori: {}, kelas_detail: {}
+                kaum: {}, 
+                jantina: {}, 
+                kategori: {},
+                kelas_detail: {
+                    "Prasekolah": { jantina: { Lelaki: 0, Perempuan: 0 }, kaum: {} },
+                    "Tahap 1": { jantina: { Lelaki: 0, Perempuan: 0 }, kaum: {} },
+                    "Tahap 2": { jantina: { Lelaki: 0, Perempuan: 0 }, kaum: {} }
+                }
             };
-
-            // Fungsi pembersihan string: buang semua jarak (space) utk padanan tepat
-            const sanitizeStr = (str) => String(str || '').toUpperCase().replace(/\s+/g, '');
-            const senaraiKelasClean = senaraiKelas.map(sanitizeStr);
-
-            senaraiKelas.forEach(k => {
-                result.kelas_detail[k] = { jantina: { Lelaki: 0, Perempuan: 0 }, kaum: { Melayu: 0, Cina: 0, India: 0, Iban: 0, "Lain-lain": 0 } };
-            });
 
             if (rows.length === 0) return result;
 
-            // ---- CARI POSISI LAJUR SECARA DINAMIK ----
-            let L_idx = -1, P_idx = -1;
-            let kaumIdx = { 'Melayu': -1, 'Cina': -1, 'India': -1, 'Iban': -1, 'Lain-lain': -1 };
-
-            rows.forEach((row, rIdx) => {
-                if (rIdx > 10) return; // Cari headers di 10 baris pertama shj
-                row.forEach((cell, idx) => {
-                    let txt = sanitizeStr(cell);
-                    if (txt === 'L' || txt === 'LELAKI') L_idx = idx;
-                    if (txt === 'P' || txt === 'PEREMPUAN') P_idx = idx;
-                    if (txt === 'MELAYU') kaumIdx['Melayu'] = idx;
-                    if (txt === 'CINA') kaumIdx['Cina'] = idx;
-                    if (txt === 'INDIA') kaumIdx['India'] = idx;
-                    if (txt === 'IBAN') kaumIdx['Iban'] = idx;
-                    if (txt.includes('LAIN')) kaumIdx['Lain-lain'] = idx;
-                });
-            });
-
-            // ---- DETECT FORMAT B (JIKA KELAS MENGUFUK DI ATAS) ----
-            let formatB_classIndices = {};
-            let headerRow1 = rows[0] ? rows[0].map(sanitizeStr) : [];
-            let headerRow2 = rows[1] ? rows[1].map(sanitizeStr) : [];
-            let headerRow3 = rows[2] ? rows[2].map(sanitizeStr) : [];
-
-            senaraiKelas.forEach((kelas, index) => {
-                let kClean = senaraiKelasClean[index];
-                let idx1 = headerRow1.findIndex(h => h.includes(kClean) || h === kClean);
-                let idx2 = headerRow2.findIndex(h => h.includes(kClean) || h === kClean);
-                let idx3 = headerRow3.findIndex(h => h.includes(kClean) || h === kClean);
-
-                let colIdx = idx1 > -1 ? idx1 : (idx2 > -1 ? idx2 : (idx3 > -1 ? idx3 : -1));
-                if (colIdx > -1) formatB_classIndices[kelas] = { L: colIdx, P: colIdx + 1 };
-            });
-            const isFormatB = Object.keys(formatB_classIndices).length > 3;
-
-            // ---- LOOP MEMBACA DATA ----
             let section = "";
-
+            
             for (let i = 0; i < rows.length; i++) {
                 const row = rows[i];
                 if (!row || row.length === 0) continue;
+                
+                const firstCell = String(row[0]).trim().toUpperCase();
+                const secondCell = row.length > 1 ? String(row[1]).trim().toUpperCase() : "";
 
-                const firstCellStr = String(row[0]).trim();
-                const firstCellClean = sanitizeStr(firstCellStr);
-                const getNum = (idx) => parseInt(String(row[idx] || '0').replace(/,/g, '')) || 0;
-
-                // 1. EXTRACT CLASS DATA (Format Biasa Menegak)
-                if (!isFormatB) {
-                    let classIndex = senaraiKelasClean.indexOf(firstCellClean);
-                    if (classIndex > -1) {
-                        let actualClassName = senaraiKelas[classIndex];
-
-                        // Jika tajuk L/P masih tak dijumpai, teka ia berada di lajur 1 dan 2
-                        let localL_idx = L_idx > -1 ? L_idx : 1;
-                        let localP_idx = P_idx > -1 ? P_idx : 2;
-
-                        result.kelas_detail[actualClassName].jantina["Lelaki"] += getNum(localL_idx);
-                        result.kelas_detail[actualClassName].jantina["Perempuan"] += getNum(localP_idx);
-
-                        if (kaumIdx['Melayu'] > -1) {
-                            result.kelas_detail[actualClassName].kaum["Melayu"] += getNum(kaumIdx['Melayu']);
-                            result.kelas_detail[actualClassName].kaum["Cina"] += getNum(kaumIdx['Cina']);
-                            result.kelas_detail[actualClassName].kaum["India"] += getNum(kaumIdx['India']);
-                            result.kelas_detail[actualClassName].kaum["Iban"] += getNum(kaumIdx['Iban']);
-                            result.kelas_detail[actualClassName].kaum["Lain-lain"] += getNum(kaumIdx['Lain-lain']);
-                        } else {
-                            // Fallback lajur kaum jika tiada tajuk ditemui
-                            result.kelas_detail[actualClassName].kaum["Melayu"] += getNum(4);
-                            result.kelas_detail[actualClassName].kaum["Cina"] += getNum(5);
-                            result.kelas_detail[actualClassName].kaum["India"] += getNum(6);
-                            result.kelas_detail[actualClassName].kaum["Iban"] += getNum(7);
-                            result.kelas_detail[actualClassName].kaum["Lain-lain"] += getNum(8);
-                        }
-                    }
+                // Kenal pasti bahagian jadual
+                if (firstCell === "KAUM" && (secondCell === "PRASEKOLAH" || secondCell.includes("ISLAM") || secondCell === "")) {
+                    section = "KAUM";
+                    continue;
+                } else if (firstCell === "KATEGORI" && secondCell === "TAHAP 1") {
+                    section = "KATEGORI";
+                    continue;
                 }
 
-                // Identify sections untuk ringkasan keseluruhan
-                if (firstCellClean === "KAUM") { section = "KAUM"; continue; }
-                if (firstCellClean === "KATEGORI") { section = "KATEGORI"; continue; }
-
-                // 2. KATEGORI (Overall ringkasan)
+                // --- Logik Pengumpulan Data ---
+                
+                // 1. KATEGORI (Simpanan ringkasan untuk modal preview)
                 if (section === "KATEGORI") {
-                    const validKat = ["PRASEKOLAH", "BD", "BL", "BP"];
-                    if (validKat.includes(firstCellClean)) {
-                        let jumlah = getNum(3) || getNum(2) || getNum(1);
-                        if (jumlah > 0) {
-                            let namaKategori = firstCellClean === "PRASEKOLAH" ? "Prasekolah" : firstCellStr;
+                    const validKat = ["PRASEKOLAH", "BD", "BL", "BP", "TAHAP 1", "TAHAP 2"];
+                    if (validKat.includes(firstCell)) {
+                        let rawVal = String(row[3]).replace(/,/g, ''); 
+                        let jumlah = parseInt(rawVal);
+                        if (!isNaN(jumlah)) {
+                            let namaKategori = row[0].trim();
+                            if(namaKategori.toUpperCase() === "PRASEKOLAH") namaKategori = "Prasekolah";
+                            else if(namaKategori.toUpperCase() === "TAHAP 1") namaKategori = "Tahap 1";
+                            else if(namaKategori.toUpperCase() === "TAHAP 2") namaKategori = "Tahap 2";
                             result.kategori[namaKategori] = jumlah;
                         }
                     }
                 }
 
-                // 3. KAUM & JANTINA KESELURUHAN
-                const validKaum = ["MELAYU", "CINA", "INDIA", "IBAN"];
-                let isKaumRow = validKaum.includes(firstCellClean) || firstCellClean.includes("LAIN");
+                // 2. KAUM, JANTINA & ANALISIS KELAS (Ditarik dari jadual Kaum)
+                if (section === "KAUM") {
+                    const validKaum = ["MELAYU", "CINA", "INDIA", "IBAN", "LAIN-LAIN"];
+                    
+                    if (validKaum.includes(firstCell)) {
+                        let rawVal = String(row[7]).replace(/,/g, '');
+                        let jumlah = parseInt(rawVal);
+                        
+                        // Tarik pecahan kelas dari jadual kaum
+                        let praL = parseInt(String(row[1]).replace(/,/g, '')) || 0;
+                        let praP = parseInt(String(row[2]).replace(/,/g, '')) || 0;
+                        let t1L = parseInt(String(row[3]).replace(/,/g, '')) || 0;
+                        let t1P = parseInt(String(row[4]).replace(/,/g, '')) || 0;
+                        let t2L = parseInt(String(row[5]).replace(/,/g, '')) || 0;
+                        let t2P = parseInt(String(row[6]).replace(/,/g, '')) || 0;
 
-                let standardKaumName = "Lain-lain";
-                if (firstCellClean === "MELAYU") standardKaumName = "Melayu";
-                else if (firstCellClean === "CINA") standardKaumName = "Cina";
-                else if (firstCellClean === "INDIA") standardKaumName = "India";
-                else if (firstCellClean === "IBAN") standardKaumName = "Iban";
+                        if (isNaN(jumlah)) {
+                            jumlah = praL + praP + t1L + t1P + t2L + t2P;
+                        }
+                        
+                        let namaKaum = row[0].trim();
+                        if (firstCell === "LAIN-LAIN") namaKaum = "Lain-lain";
+                        else namaKaum = namaKaum.charAt(0).toUpperCase() + namaKaum.slice(1).toLowerCase();
+                        
+                        // Simpan keseluruhan kaum
+                        result.kaum[namaKaum] = jumlah;
 
-                if (isKaumRow) {
-                    if (isFormatB) {
-                        Object.keys(formatB_classIndices).forEach(kelas => {
-                            let cols = formatB_classIndices[kelas];
-                            let l_val = getNum(cols.L);
-                            let p_val = getNum(cols.P);
+                        // Simpan analisis pecahan mengikut Kelas
+                        result.kelas_detail["Prasekolah"].kaum[namaKaum] = praL + praP;
+                        result.kelas_detail["Prasekolah"].jantina["Lelaki"] += praL;
+                        result.kelas_detail["Prasekolah"].jantina["Perempuan"] += praP;
 
-                            result.kelas_detail[kelas].jantina["Lelaki"] += l_val;
-                            result.kelas_detail[kelas].jantina["Perempuan"] += p_val;
-                            result.kelas_detail[kelas].kaum[standardKaumName] += (l_val + p_val);
-                        });
+                        result.kelas_detail["Tahap 1"].kaum[namaKaum] = t1L + t1P;
+                        result.kelas_detail["Tahap 1"].jantina["Lelaki"] += t1L;
+                        result.kelas_detail["Tahap 1"].jantina["Perempuan"] += t1P;
+
+                        result.kelas_detail["Tahap 2"].kaum[namaKaum] = t2L + t2P;
+                        result.kelas_detail["Tahap 2"].jantina["Lelaki"] += t2L;
+                        result.kelas_detail["Tahap 2"].jantina["Perempuan"] += t2P;
                     }
-
-                    let jumlahKaum = getNum(7); 
-                    if (jumlahKaum === 0) {
-                        for(let j=1; j<row.length; j++) jumlahKaum += getNum(j);
-                    }
-                    result.kaum[standardKaumName] = (result.kaum[standardKaumName] || 0) + jumlahKaum;
-                }
-                else if ((firstCellClean === "JUMLAH" || firstCellClean.includes("KESELURUHAN")) && Object.keys(result.jantina).length === 0) {
-                    if (isFormatB) {
-                        let sumL = 0, sumP = 0;
-                        Object.values(formatB_classIndices).forEach(cols => { sumL += getNum(cols.L); sumP += getNum(cols.P); });
-                        if (sumL > 0 || sumP > 0) { result.jantina["Lelaki"] = sumL; result.jantina["Perempuan"] = sumP; }
-                    } else {
-                        let sumL = getNum(1) + getNum(3) + getNum(5);
-                        let sumP = getNum(2) + getNum(4) + getNum(6);
-                        if (sumL > 0 || sumP > 0) { result.jantina["Lelaki"] = sumL; result.jantina["Perempuan"] = sumP; }
+                    else if ((firstCell === "JUMLAH" || firstCell === "JUMLAH KESELURUHAN") && Object.keys(result.jantina).length === 0) {
+                        let praL = parseInt(String(row[1]).replace(/,/g, '')) || 0;
+                        let praP = parseInt(String(row[2]).replace(/,/g, '')) || 0;
+                        let t1L = parseInt(String(row[3]).replace(/,/g, '')) || 0;
+                        let t1P = parseInt(String(row[4]).replace(/,/g, '')) || 0;
+                        let t2L = parseInt(String(row[5]).replace(/,/g, '')) || 0;
+                        let t2P = parseInt(String(row[6]).replace(/,/g, '')) || 0;
+                        
+                        let sumL = praL + t1L + t2L;
+                        let sumP = praP + t1P + t2P;
+                        
+                        if (sumL > 0 || sumP > 0) {
+                            result.jantina["Lelaki"] = sumL;
+                            result.jantina["Perempuan"] = sumP;
+                        }
                     }
                 }
             }
 
-            // Fallback terakhir: Ambil jumlah dari butiran kelas
+            // Fallback keselamatan
             if(Object.keys(result.kaum).length === 0) result.kaum['Tiada Data'] = 0;
-            if(Object.keys(result.jantina).length === 0) {
-                let sumL = 0, sumP = 0;
-                Object.values(result.kelas_detail).forEach(k => { sumL += k.jantina["Lelaki"]; sumP += k.jantina["Perempuan"]; });
-                if (sumL > 0 || sumP > 0) { result.jantina["Lelaki"] = sumL; result.jantina["Perempuan"] = sumP; } 
-                else { result.jantina['Tiada Data'] = 0; }
-            }
+            if(Object.keys(result.jantina).length === 0) result.jantina['Tiada Data'] = 0;
+            if(Object.keys(result.kategori).length === 0) result.kategori['Tiada Data'] = 0;
 
             return result;
         }
@@ -375,13 +316,15 @@
         let currentFilter = "semua"; 
         
         let chartInstances = {
-            kaum: null, jantina: null, kategoriJantina: null, kategoriKaum: null, trend: null
+            kaum: null,
+            jantina: null,
+            kategoriJantina: null,
+            kategoriKaum: null,
+            trend: null
         };
 
         // --- 3. INISIALISASI ---
         document.addEventListener('DOMContentLoaded', async () => {
-            binaDropdownKelas(); 
-
             for (const tahun of tahunList) {
                 try {
                     const response = await fetch(sheetLinks[tahun]);
@@ -392,9 +335,8 @@
                     console.error(`Ralat: Gagal memuat turun data ${tahun}`, error);
                     dbData[tahun] = { 
                         kaum: {'Tiada Data': 0}, jantina: {'Tiada Data': 0}, kategori: {'Tiada Data': 0},
-                        kelas_detail: {}
+                        kelas_detail: { "Prasekolah": { jantina: {}, kaum: {} }, "Tahap 1": { jantina: {}, kaum: {} }, "Tahap 2": { jantina: {}, kaum: {} } }
                     };
-                    senaraiKelas.forEach(k => { dbData[tahun].kelas_detail[k] = { jantina: {}, kaum: {} }; });
                 }
             }
 
@@ -425,16 +367,6 @@
             });
         }
 
-        function binaDropdownKelas() {
-            const dropdown = document.getElementById('dropdown-kelas');
-            senaraiKelas.forEach(kelas => {
-                const opt = document.createElement('option');
-                opt.value = kelas;
-                opt.innerText = kelas;
-                dropdown.appendChild(opt);
-            });
-        }
-
         // --- 4. KAWALAN STATE ---
         function setTahun(tahun) {
             currentYear = tahun;
@@ -458,8 +390,6 @@
                     btn.className = `filter-btn px-4 py-2 text-sm font-medium rounded-md text-gray-600 hover:text-gray-900 transition-all`;
                 }
             });
-            
-            document.getElementById('dropdown-kelas').value = 'Semua';
             updateDashboard();
         }
 
@@ -467,22 +397,27 @@
         function updateDashboard() {
             const dataTahun = dbData[currentYear];
             
-            let jumLelaki = 0; let jumPerempuan = 0;
+            let jumLelaki = 0;
+            let jumPerempuan = 0;
             Object.entries(dataTahun.jantina).forEach(([k, v]) => {
-                if (k.toUpperCase() === 'LELAKI' || k.toUpperCase() === 'L') jumLelaki += v;
-                else if (k.toUpperCase() === 'PEREMPUAN' || k.toUpperCase() === 'P') jumPerempuan += v;
+                const keyUp = k.toUpperCase();
+                if (keyUp === 'LELAKI' || keyUp === 'L') jumLelaki += v;
+                else if (keyUp === 'PEREMPUAN' || keyUp === 'P') jumPerempuan += v;
             });
             
             let jumKeseluruhan = 0;
             Object.values(dataTahun.jantina).forEach(v => jumKeseluruhan += v);
-            if (jumKeseluruhan === 0) Object.values(dataTahun.kaum).forEach(v => jumKeseluruhan += v);
+            if (jumKeseluruhan === 0) {
+                Object.values(dataTahun.kaum).forEach(v => jumKeseluruhan += v);
+            }
 
+            // Update Teks Tajuk Dinamik
             if (currentFilter === 'trend') {
                 document.getElementById('dashboard-title').innerText = "Trend Keseluruhan (2022 - 2026)";
                 document.getElementById('dashboard-subtitle').innerText = "Perbandingan jumlah enrolmen merentas tahun.";
             } else if (currentFilter === 'kategori') {
-                document.getElementById('dashboard-title').innerText = `Analisis Kelas Tahun ${currentYear}`;
-                document.getElementById('dashboard-subtitle').innerText = `Pecahan kaum dan jantina secara terperinci mengikut kelas.`;
+                document.getElementById('dashboard-title').innerText = `Analisis Kategori Kelas ${currentYear}`;
+                document.getElementById('dashboard-subtitle').innerText = `Pecahan kaum dan jantina mengikut kelas utama.`;
             } else {
                 document.getElementById('dashboard-title').innerText = `Enrolmen Tahun ${currentYear}`;
                 document.getElementById('dashboard-subtitle').innerText = `Pecahan data enrolmen murid bagi sesi ${currentYear}.`;
@@ -497,60 +432,58 @@
             const cKategoriJantina = document.getElementById('container-kategori-jantina');
             const cKategoriKaum = document.getElementById('container-kategori-kaum');
             const cTrend = document.getElementById('container-trend');
-            const cKelasFilter = document.getElementById('kelas-filter-container');
             const cards = document.getElementById('summary-cards');
 
-            cKaum.classList.add('hidden'); cJantina.classList.add('hidden');
-            cKategoriJantina.classList.add('hidden'); cKategoriKaum.classList.add('hidden');
-            cTrend.classList.add('hidden'); cKelasFilter.classList.add('hidden');
+            // Reset semua hidden
+            cKaum.classList.add('hidden');
+            cJantina.classList.add('hidden');
+            cKategoriJantina.classList.add('hidden');
+            cKategoriKaum.classList.add('hidden');
+            cTrend.classList.add('hidden');
             
+            // Buang kelas grid sementara
             cKategoriKaum.classList.remove('lg:col-span-2');
-            cKategoriJantina.classList.remove('lg:col-span-2');
 
             if (currentFilter === 'semua') {
-                cards.classList.remove('hidden'); cKaum.classList.remove('hidden'); cJantina.classList.remove('hidden');
-                cKategoriJantina.classList.remove('hidden'); cKategoriKaum.classList.remove('hidden');
-                cKategoriJantina.classList.add('lg:col-span-2'); 
-                cKategoriKaum.classList.add('lg:col-span-2'); 
+                cards.classList.remove('hidden');
+                cKaum.classList.remove('hidden');
+                cJantina.classList.remove('hidden');
                 
-                renderKaumChart(dataTahun.kaum); renderJantinaChart(dataTahun.jantina);
-                renderKategoriJantinaChart(dataTahun.kelas_detail); renderKategoriKaumChart(dataTahun.kelas_detail);
+                cKategoriJantina.classList.remove('hidden');
+                cKategoriKaum.classList.remove('hidden');
+                cKategoriKaum.classList.add('lg:col-span-2'); // Agar nampak panjang di bawah Kaum utama
+                
+                renderKaumChart(dataTahun.kaum);
+                renderJantinaChart(dataTahun.jantina);
+                renderKategoriJantinaChart(dataTahun.kelas_detail);
+                renderKategoriKaumChart(dataTahun.kelas_detail);
             } 
             else if (currentFilter === 'kaum') {
-                cards.classList.remove('hidden'); cKaum.classList.remove('hidden');
+                cards.classList.remove('hidden');
+                cKaum.classList.remove('hidden');
                 renderKaumChart(dataTahun.kaum);
             }
             else if (currentFilter === 'jantina') {
-                cards.classList.remove('hidden'); cJantina.classList.remove('hidden'); cJantina.classList.add('lg:col-span-2'); 
+                cards.classList.remove('hidden');
+                cJantina.classList.remove('hidden');
+                cJantina.classList.add('lg:col-span-2'); 
                 renderJantinaChart(dataTahun.jantina);
             }
             else if (currentFilter === 'kategori') {
-                cards.classList.remove('hidden'); cKelasFilter.classList.remove('hidden'); 
-                cKategoriJantina.classList.remove('hidden'); cKategoriKaum.classList.remove('hidden');
-                cKategoriJantina.classList.add('lg:col-span-2'); cKategoriKaum.classList.add('lg:col-span-2');
-                updateKelasView(); 
+                cards.classList.remove('hidden');
+                // Paparkan DUA chart analisis di sebelah menyebelah (Grid 2 kolum)
+                cKategoriJantina.classList.remove('hidden');
+                cKategoriKaum.classList.remove('hidden');
+                renderKategoriJantinaChart(dataTahun.kelas_detail);
+                renderKategoriKaumChart(dataTahun.kelas_detail);
             }
             else if (currentFilter === 'trend') {
-                cards.classList.add('hidden'); cTrend.classList.remove('hidden');
+                cards.classList.add('hidden');
+                cTrend.classList.remove('hidden');
                 renderTrendChart();
             }
 
             if(currentFilter !== 'jantina') cJantina.classList.remove('lg:col-span-2');
-        }
-
-        function updateKelasView() {
-            const dataTahun = dbData[currentYear];
-            const selectedKelas = document.getElementById('dropdown-kelas').value;
-            let dataUntukDicarta = {};
-
-            if (selectedKelas === 'Semua') {
-                dataUntukDicarta = dataTahun.kelas_detail; 
-            } else {
-                dataUntukDicarta[selectedKelas] = dataTahun.kelas_detail[selectedKelas];
-            }
-
-            renderKategoriJantinaChart(dataUntukDicarta);
-            renderKategoriKaumChart(dataUntukDicarta);
         }
 
         // --- FUNGSI BINA GRAF ---
@@ -606,36 +539,46 @@
             });
         }
 
+        // GRAF BARU: Analisis Jantina Mengikut Kelas (Grouped Bar)
         function renderKategoriJantinaChart(kelasDetail) {
             const ctx = document.getElementById('chartKategoriJantina').getContext('2d');
             if(chartInstances.kategoriJantina) chartInstances.kategoriJantina.destroy();
 
-            const labels = Object.keys(kelasDetail);
+            const labels = Object.keys(kelasDetail); // ["Prasekolah", "Tahap 1", "Tahap 2"]
             const dataLelaki = labels.map(k => kelasDetail[k].jantina["Lelaki"] || 0);
             const dataPerempuan = labels.map(k => kelasDetail[k].jantina["Perempuan"] || 0);
-
-            const barThickness = labels.length === 1 ? 50 : undefined;
 
             chartInstances.kategoriJantina = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Lelaki', data: dataLelaki, backgroundColor: 'rgba(59, 130, 246, 0.8)', borderRadius: 4, barThickness: barThickness },
-                        { label: 'Perempuan', data: dataPerempuan, backgroundColor: 'rgba(236, 72, 153, 0.8)', borderRadius: 4, barThickness: barThickness }
+                        {
+                            label: 'Lelaki',
+                            data: dataLelaki,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Perempuan',
+                            data: dataPerempuan,
+                            backgroundColor: 'rgba(236, 72, 153, 0.8)',
+                            borderRadius: 4
+                        }
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } },
                     scales: {
-                        x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45 } }, 
+                        x: { grid: { display: false } },
                         y: { beginAtZero: true, grid: { borderDash: [2, 4] } }
                     }
                 }
             });
         }
 
+        // GRAF BARU: Analisis Kaum Mengikut Kelas (Stacked Bar)
         function renderKategoriKaumChart(kelasDetail) {
             const ctx = document.getElementById('chartKategoriKaum').getContext('2d');
             if(chartInstances.kategoriKaum) chartInstances.kategoriKaum.destroy();
@@ -643,18 +586,18 @@
             const labels = Object.keys(kelasDetail);
             const kaumList = ["Melayu", "Cina", "India", "Iban", "Lain-lain"];
             const colors = [
-                'rgba(99, 102, 241, 0.8)', 'rgba(16, 185, 129, 0.8)', 
-                'rgba(245, 158, 11, 0.8)', 'rgba(139, 92, 246, 0.8)', 'rgba(107, 114, 128, 0.8)' 
+                'rgba(99, 102, 241, 0.8)', // Indigo
+                'rgba(16, 185, 129, 0.8)', // Emerald
+                'rgba(245, 158, 11, 0.8)', // Amber
+                'rgba(139, 92, 246, 0.8)', // Violet
+                'rgba(107, 114, 128, 0.8)' // Gray
             ];
-
-            const barThickness = labels.length === 1 ? 80 : undefined;
 
             const datasets = kaumList.map((kaum, index) => {
                 return {
                     label: kaum,
                     data: labels.map(k => kelasDetail[k].kaum[kaum] || 0),
-                    backgroundColor: colors[index % colors.length],
-                    barThickness: barThickness
+                    backgroundColor: colors[index % colors.length]
                 }
             });
 
@@ -668,7 +611,7 @@
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } },
                     scales: {
-                        x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45 } },
+                        x: { stacked: true, grid: { display: false } }, // Ditindan (Stacked)
                         y: { stacked: true, beginAtZero: true, grid: { borderDash: [2, 4] } }
                     }
                 }
@@ -686,11 +629,14 @@
                 const dt = dbData[tahun] || { jantina: {}, kaum: {} };
                 let lel = 0; let per = 0; let total = 0;
                 Object.entries(dt.jantina).forEach(([k, v]) => {
-                    if (k.toUpperCase() === 'LELAKI' || k.toUpperCase() === 'L') lel += v;
-                    else if (k.toUpperCase() === 'PEREMPUAN' || k.toUpperCase() === 'P') per += v;
+                    const keyUp = k.toUpperCase();
+                    if (keyUp === 'LELAKI' || keyUp === 'L') lel += v;
+                    else if (keyUp === 'PEREMPUAN' || keyUp === 'P') per += v;
                     total += v;
                 });
+                
                 if (total === 0) { Object.values(dt.kaum).forEach(v => total += v); }
+
                 dataLelaki.push(lel); dataPerempuan.push(per); dataJumlah.push(total);
             });
 
@@ -741,8 +687,8 @@
 
             content.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    ${createTable('Jantina Keseluruhan', data.jantina)}
-                    ${createTable('Kategori Bilangan', data.kategori)}
+                    ${createTable('Jantina', data.jantina)}
+                    ${createTable('Keseluruhan Kategori', data.kategori)}
                     <div class="md:col-span-2">
                         ${createTable('Kaum Keseluruhan', data.kaum)}
                     </div>
